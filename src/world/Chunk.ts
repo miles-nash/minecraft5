@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BlockId, BLOCK_COLORS, CHUNK_SIZE, WORLD_HEIGHT } from './constants';
+import { BlockId, CHUNK_SIZE, WORLD_HEIGHT } from './constants';
 
 export class Chunk {
   key: string;
@@ -28,13 +28,26 @@ export class Chunk {
     this.blocks[this.index(x, y, z)] = id;
   }
 
+  private static seededHue(x: number, y: number, z: number): number {
+    // Large primes hashing to [0,1)
+    const h = (Math.sin(x * 12_989.0 + y * 78_233.0 + z * 45_679.0) * 43758.5453) % 1;
+    return (h + 1 + 0.5) % 1; // ensure positive and spread
+  }
+
   buildMesh(): THREE.InstancedMesh | null {
     if (this.mesh) {
       this.mesh.geometry.dispose();
       (this.mesh.material as THREE.Material).dispose();
     }
     const box = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, metalness: 0, roughness: 1 });
+    const mat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      flatShading: true,
+      metalness: 0,
+      roughness: 1,
+      emissive: new THREE.Color(0x151515),
+      emissiveIntensity: 0.4,
+    });
     // We color via instance color; enable it
     const mesh = new THREE.InstancedMesh(box, mat, this.blocks.length);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -53,7 +66,12 @@ export class Chunk {
           dummy.position.set(this.originX + x + 0.5, y + 0.5, this.originZ + z + 0.5);
           dummy.updateMatrix();
           mesh.setMatrixAt(count, dummy.matrix);
-          color.setHex(BLOCK_COLORS[id]);
+          // Deterministic bright random color per world position
+          const wx = this.originX + x;
+          const wy = y;
+          const wz = this.originZ + z;
+          const h = Chunk.seededHue(wx, wy, wz);
+          color.setHSL(h, 0.7, 0.6);
           mesh.setColorAt(count, color);
           count++;
         }

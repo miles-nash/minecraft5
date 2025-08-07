@@ -122,7 +122,7 @@ let onGround = false;
 
 function updateMovement(delta: number) {
   moveDir.set(0, 0, 0);
-  const speed = isFlying ? 24 : 12;
+  const speed = isFlying ? 40 : 12;
   if (keyState['KeyW']) moveDir.z -= 1;
   if (keyState['KeyS']) moveDir.z += 1;
   if (keyState['KeyA']) moveDir.x -= 1;
