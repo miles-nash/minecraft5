@@ -111,16 +111,17 @@ function updateMovement(delta: number) {
   if (keyState['KeyD']) moveDir.x += 1;
   moveDir.normalize();
 
-  const yaw = controls.getObject().rotation.y;
-  const sin = Math.sin(yaw);
-  const cos = Math.cos(yaw);
-  const forwardX = -sin;
-  const forwardZ = -cos;
-  const rightX = cos;
-  const rightZ = -sin;
+  // Use camera forward/right so W moves forward, S backward
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0;
+  if (forward.lengthSq() > 0) forward.normalize();
+  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
 
-  velocity.x += (forwardX * moveDir.z + rightX * moveDir.x) * speed * delta;
-  velocity.z += (forwardZ * moveDir.z + rightZ * moveDir.x) * speed * delta;
+  const accelX = (-moveDir.z) * forward.x + moveDir.x * right.x;
+  const accelZ = (-moveDir.z) * forward.z + moveDir.x * right.z;
+  velocity.x += accelX * speed * delta;
+  velocity.z += accelZ * speed * delta;
 
   // Gravity and jump
   velocity.y -= 32 * delta;
