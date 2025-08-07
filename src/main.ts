@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls.js';
 import { World } from './world/World';
 import { BlockId } from './world/constants';
+import { ClippyNPC } from './npc/Clippy';
 
 const appElement = document.getElementById('app')!;
 const hudElement = document.getElementById('hud')!;
@@ -60,6 +61,9 @@ window.addEventListener('keyup', (e) => (keyState[e.code] = false));
 
 // World
 const world = new World(scene);
+const clippy = new ClippyNPC();
+clippy.position.set(12, 39, 12);
+scene.add(clippy);
 
 // Inventory (0-8 slots, 1-9 to select)
 let selected: BlockId = BlockId.Grass;
@@ -213,6 +217,7 @@ function animate() {
 
   camera.updateMatrixWorld();
   world.update(camera.position, camera);
+  clippy.update(delta, controls.getObject().position);
   if (controls.isLocked) updateMovement(delta);
   updateHud(fps);
 
