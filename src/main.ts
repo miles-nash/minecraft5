@@ -38,7 +38,24 @@ renderer.domElement.addEventListener('click', () => {
 
 // Movement
 const keyState: Record<string, boolean> = {};
-window.addEventListener('keydown', (e) => (keyState[e.code] = true));
+let isFlying = false;
+let lastSpaceTapMs = 0;
+const DOUBLE_TAP_WINDOW_MS = 300;
+window.addEventListener('keydown', (e) => {
+  keyState[e.code] = true;
+  if (e.code === 'Space') {
+    const now = performance.now();
+    if (now - lastSpaceTapMs < DOUBLE_TAP_WINDOW_MS) {
+      isFlying = !isFlying;
+      // Reset vertical velocity when toggling flight to avoid abrupt jumps/falls
+      const pos = controls.getObject().position;
+      velocity.y = 0;
+      lastSpaceTapMs = 0;
+    } else {
+      lastSpaceTapMs = now;
+    }
+  }
+});
 window.addEventListener('keyup', (e) => (keyState[e.code] = false));
 
 // World
@@ -105,7 +122,7 @@ let onGround = false;
 
 function updateMovement(delta: number) {
   moveDir.set(0, 0, 0);
-  const speed = 12;
+  const speed = isFlying ? 24 : 12;
   if (keyState['KeyW']) moveDir.z -= 1;
   if (keyState['KeyS']) moveDir.z += 1;
   if (keyState['KeyA']) moveDir.x -= 1;
@@ -124,10 +141,17 @@ function updateMovement(delta: number) {
   velocity.x += accelX * speed * delta;
   velocity.z += accelZ * speed * delta;
 
-  // Gravity and jump
-  velocity.y -= 32 * delta;
-  if (onGround && keyState['Space']) {
-    velocity.y = 10;
+  // Gravity / vertical control
+  if (isFlying) {
+    let upDown = 0;
+    if (keyState['Space']) upDown += 1;
+    if (keyState['ShiftLeft'] || keyState['ShiftRight']) upDown -= 1;
+    velocity.y += upDown * speed * delta;
+  } else {
+    velocity.y -= 32 * delta;
+    if (onGround && keyState['Space']) {
+      velocity.y = 10;
+    }
   }
 
   const pos = controls.getObject().position;
@@ -155,18 +179,20 @@ function updateMovement(delta: number) {
                    world.isSolidAt(Math.floor(headAt(tryY).x), Math.floor(headAt(tryY).y), Math.floor(headAt(tryY).z));
   if (!collidesY) pos.y = tryY.y; else velocity.y = Math.max(0, velocity.y);
 
-  onGround = collidesY && velocity.y <= 0;
+  onGround = !isFlying && collidesY && velocity.y <= 0;
 
   // Dampen horizontal velocity
-  velocity.x *= 0.85;
-  velocity.z *= 0.85;
+  const damp = isFlying ? 0.90 : 0.85;
+  velocity.x *= damp;
+  velocity.z *= damp;
+  if (isFlying) velocity.y *= 0.90;
 }
 
 // HUD update
 function updateHud(fps: number) {
   const p = controls.getObject().position;
   const chunkKey = world.getChunkKeyFromWorld(p.x, p.y, p.z);
-  hudElement.textContent = `FPS ${fps.toFixed(0)}  Pos ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}  Chunks ${world.loadedChunkCount}  Selected ${selected}`;
+  hudElement.textContent = `FPS ${fps.toFixed(0)}  Pos ${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}  Chunks ${world.loadedChunkCount}  Selected ${selected}  Fly ${isFlying ? 'ON' : 'OFF'}`;
 }
 
 // Main loop
