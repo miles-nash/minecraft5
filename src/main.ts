@@ -12,7 +12,6 @@ scene.background = new THREE.Color(0x87ceeb);
 scene.fog = new THREE.Fog(0x87ceeb, 60, 160);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
-camera.position.set(8, 48, 8);
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -30,6 +29,7 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.getObject());
+controls.getObject().position.set(8, 48, 8);
 
 renderer.domElement.addEventListener('click', () => {
   controls.lock();
@@ -191,6 +191,9 @@ function animate() {
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
+// Prime world before first frame so we don't start in a void
+camera.updateMatrixWorld();
+world.update(controls.getObject().position, camera);
 animate();
 
 
