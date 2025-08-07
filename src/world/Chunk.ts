@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { BlockId, CHUNK_SIZE, WORLD_HEIGHT } from './constants';
+import { getMaterialForBlock } from './textures';
 
 export class Chunk {
   key: string;
   originX: number;
   originZ: number;
   blocks: Uint8Array; // x,y,z packed
-  mesh: THREE.InstancedMesh | null = null;
-  instanceCount = 0;
+  mesh: THREE.Object3D | null = null;
 
   constructor(key: string, originX: number, originZ: number) {
     this.key = key;
@@ -29,54 +29,74 @@ export class Chunk {
   }
 
   private static seededHue(x: number, y: number, z: number): number {
-    // Large primes hashing to [0,1)
     const h = (Math.sin(x * 12_989.0 + y * 78_233.0 + z * 45_679.0) * 43758.5453) % 1;
-    return (h + 1 + 0.5) % 1; // ensure positive and spread
+    return (h + 1 + 0.5) % 1;
   }
 
-  buildMesh(): THREE.InstancedMesh | null {
+  buildMesh(): THREE.Object3D | null {
     if (this.mesh) {
-      this.mesh.geometry.dispose();
-      (this.mesh.material as THREE.Material).dispose();
+      // Dispose any previous group children
+      this.mesh.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        if ((mesh as any).isMesh) {
+          mesh.geometry?.dispose?.();
+          if (Array.isArray(mesh.material)) mesh.material.forEach((m) => m.dispose());
+          else (mesh.material as THREE.Material | undefined)?.dispose?.();
+        }
+      });
     }
+
+    const group = new THREE.Group();
     const box = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true });
-    // We color via instance color; enable it
-    const mesh = new THREE.InstancedMesh(box, mat, this.blocks.length);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    const dummy = new THREE.Object3D();
-    const color = new THREE.Color();
-    let count = 0;
+
+    // First pass: count visible blocks per BlockId
+    const counts = new Map<BlockId, number>();
     for (let y = 0; y < WORLD_HEIGHT; y++) {
       for (let z = 0; z < CHUNK_SIZE; z++) {
         for (let x = 0; x < CHUNK_SIZE; x++) {
           const id = this.get(x, y, z);
           if (id === BlockId.Air) continue;
-          // Simple face culling by checking neighbors; only add if visible on any side
-          if (
-            this.isHidden(x, y, z)
-          ) continue;
-          dummy.position.set(this.originX + x + 0.5, y + 0.5, this.originZ + z + 0.5);
-          dummy.updateMatrix();
-          mesh.setMatrixAt(count, dummy.matrix);
-          // Deterministic bright random color per world position
-          const wx = this.originX + x;
-          const wy = y;
-          const wz = this.originZ + z;
-          const h = Chunk.seededHue(wx, wy, wz);
-          color.setHSL(h, 0.7, 0.6);
-          mesh.setColorAt(count, color);
-          count++;
+          if (this.isHidden(x, y, z)) continue;
+          counts.set(id, (counts.get(id) || 0) + 1);
         }
       }
     }
-    this.instanceCount = count;
-    mesh.count = count;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    this.mesh = mesh;
-    if (count === 0) return null;
-    return mesh;
+
+    // Create instanced meshes per block type
+    const meshes = new Map<BlockId, THREE.InstancedMesh>();
+    const counters = new Map<BlockId, number>();
+    for (const [id, count] of counts) {
+      const inst = new THREE.InstancedMesh(box, getMaterialForBlock(id), count);
+      inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      meshes.set(id, inst);
+      counters.set(id, 0);
+      group.add(inst);
+    }
+
+    const dummy = new THREE.Object3D();
+    for (let y = 0; y < WORLD_HEIGHT; y++) {
+      for (let z = 0; z < CHUNK_SIZE; z++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+          const id = this.get(x, y, z);
+          if (id === BlockId.Air) continue;
+          if (this.isHidden(x, y, z)) continue;
+          const inst = meshes.get(id);
+          if (!inst) continue;
+          const idx = counters.get(id)!;
+          dummy.position.set(this.originX + x + 0.5, y + 0.5, this.originZ + z + 0.5);
+          dummy.updateMatrix();
+          inst.setMatrixAt(idx, dummy.matrix);
+          counters.set(id, idx + 1);
+        }
+      }
+    }
+
+    for (const inst of meshes.values()) {
+      inst.instanceMatrix.needsUpdate = true;
+    }
+    this.mesh = group;
+    if (group.children.length === 0) return null;
+    return group;
   }
 
   private isHidden(x: number, y: number, z: number) {

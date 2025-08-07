@@ -9,7 +9,7 @@ export class World {
   private scene: THREE.Scene;
   private chunks: Map<string, Chunk> = new Map();
   private perlin = new Perlin2D(2025);
-  private chunkMeshes: Map<string, THREE.InstancedMesh> = new Map();
+  private chunkMeshes: Map<string, THREE.Object3D> = new Map();
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -32,10 +32,7 @@ export class World {
     this.generateChunkTerrain(chunk);
     this.chunks.set(key, chunk);
     const mesh = chunk.buildMesh();
-    if (mesh) {
-      this.scene.add(mesh);
-      this.chunkMeshes.set(key, mesh);
-    }
+    if (mesh) { this.scene.add(mesh); this.chunkMeshes.set(key, mesh); }
     return chunk;
   }
 
@@ -110,12 +107,7 @@ export class World {
 
   private disposeChunk(key: string) {
     const mesh = this.chunkMeshes.get(key);
-    if (mesh) {
-      this.scene.remove(mesh);
-      mesh.geometry.dispose();
-      (mesh.material as THREE.Material).dispose();
-      this.chunkMeshes.delete(key);
-    }
+    if (mesh) { this.scene.remove(mesh); this.chunkMeshes.delete(key); }
     this.chunks.delete(key);
   }
 
