@@ -34,7 +34,7 @@ export class Chunk {
       (this.mesh.material as THREE.Material).dispose();
     }
     const box = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, metalness: 0, roughness: 1 });
     // We color via instance color; enable it
     const mesh = new THREE.InstancedMesh(box, mat, this.blocks.length);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

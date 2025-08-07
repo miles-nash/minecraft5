@@ -21,10 +21,11 @@ renderer.setClearColor(0x87ceeb, 1);
 appElement.appendChild(renderer.domElement);
 
 // Lights
-const sun = new THREE.DirectionalLight(0xffffff, 1.0);
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
 sun.position.set(1, 1, 0.5).multiplyScalar(100);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+scene.add(new THREE.HemisphereLight(0x88bbff, 0x446633, 0.5));
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
@@ -116,7 +117,7 @@ function updateMovement(delta: number) {
   camera.getWorldDirection(forward);
   forward.y = 0;
   if (forward.lengthSq() > 0) forward.normalize();
-  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
   const accelX = (-moveDir.z) * forward.x + moveDir.x * right.x;
   const accelZ = (-moveDir.z) * forward.z + moveDir.x * right.z;
