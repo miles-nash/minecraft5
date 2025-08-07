@@ -12,12 +12,33 @@ export class ClippyNPC extends THREE.Group {
 
   constructor() {
     super();
-    // Paperclip body: torus + cylinder arcs
-    const material = new THREE.MeshBasicMaterial({ color: 0xc0c0ff });
-    const torus = new THREE.TorusGeometry(2.0, 0.15, 12, 64);
-    this.body = new THREE.Mesh(torus, material);
-    this.body.rotation.x = Math.PI / 2;
-    this.add(this.body);
+    // Paperclip body: multiple bent segments to mirror the iconic shape
+    const metal = new THREE.MeshBasicMaterial({ color: 0xbfc4ff });
+    const group = new THREE.Group();
+    const tube = (path: THREE.Curve<THREE.Vector3>, radius = 0.12) => new THREE.Mesh(new THREE.TubeGeometry(path, 64, radius, 8, false), metal);
+
+    // Outer loop path
+    class ClipPath extends THREE.Curve<THREE.Vector3> {
+      private scale: number;
+      constructor(scale: number) { super(); this.scale = scale; }
+      getPoint(t: number) {
+        // Two lobes with a straight middle to avoid a perfect circle
+        const s = this.scale;
+        const angle = t * Math.PI * 1.6 + 0.2; // slightly open gap
+        const r = 2.0 + Math.sin(t * Math.PI) * 0.25; // squash
+        return new THREE.Vector3(Math.cos(angle) * r * s, Math.sin(angle) * r * 0.8 * s + 0.6, 0);
+      }
+    }
+    const outer = tube(new ClipPath(1));
+    const inner = tube(new ClipPath(0.75));
+    inner.position.z = 0.02;
+    group.add(outer, inner);
+    // Bottom straight leg
+    const legPath = new THREE.LineCurve3(new THREE.Vector3(-0.2, -0.2, 0), new THREE.Vector3(0.9, -0.9, 0));
+    const leg = tube(legPath as any, 0.12);
+    group.add(leg);
+    this.body = new THREE.Mesh();
+    this.add(group);
 
     const eyeWhite = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const eyeBlack = new THREE.MeshBasicMaterial({ color: 0x000000 });
@@ -27,8 +48,8 @@ export class ClippyNPC extends THREE.Group {
     this.eyeRight = new THREE.Mesh(eyeGeo, eyeWhite);
     this.pupilLeft = new THREE.Mesh(pupilGeo, eyeBlack);
     this.pupilRight = new THREE.Mesh(pupilGeo, eyeBlack);
-    this.eyeLeft.position.set(-0.35, 1.2, 0.8);
-    this.eyeRight.position.set(0.35, 1.2, 0.8);
+    this.eyeLeft.position.set(-0.35, 1.1, 0.35);
+    this.eyeRight.position.set(0.35, 1.1, 0.35);
     this.pupilLeft.position.copy(this.eyeLeft.position).add(new THREE.Vector3(0, 0, 0.12));
     this.pupilRight.position.copy(this.eyeRight.position).add(new THREE.Vector3(0, 0, 0.12));
     this.add(this.eyeLeft, this.eyeRight, this.pupilLeft, this.pupilRight);

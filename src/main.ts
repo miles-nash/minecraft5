@@ -150,7 +150,8 @@ function updateMovement(delta: number) {
     let upDown = 0;
     if (keyState['Space']) upDown += 1;
     if (keyState['ShiftLeft'] || keyState['ShiftRight']) upDown -= 1;
-    velocity.y += upDown * speed * delta;
+    // Direct control to avoid drift
+    velocity.y = upDown * speed;
   } else {
     velocity.y -= 32 * delta;
     if (onGround && keyState['Space']) {
@@ -161,35 +162,40 @@ function updateMovement(delta: number) {
   const pos = controls.getObject().position;
   const next = tempVec.copy(pos).addScaledVector(velocity, delta);
 
-  // Axis-aligned simple collision resolution (feet/head checks)
-  const feetAt = (v: THREE.Vector3) => new THREE.Vector3(v.x, v.y - 1.6, v.z);
-  const headAt = (v: THREE.Vector3) => new THREE.Vector3(v.x, v.y + 0.2, v.z);
+  if (isFlying) {
+    pos.copy(next);
+    onGround = false;
+  } else {
+    // Axis-aligned simple collision resolution (feet/head checks)
+    const feetAt = (v: THREE.Vector3) => new THREE.Vector3(v.x, v.y - 1.6, v.z);
+    const headAt = (v: THREE.Vector3) => new THREE.Vector3(v.x, v.y + 0.2, v.z);
 
-  // Try X axis
-  const tryX = new THREE.Vector3(next.x, pos.y, pos.z);
-  const collidesX = world.isSolidAt(Math.floor(feetAt(tryX).x), Math.floor(feetAt(tryX).y), Math.floor(feetAt(tryX).z)) ||
-                   world.isSolidAt(Math.floor(headAt(tryX).x), Math.floor(headAt(tryX).y), Math.floor(headAt(tryX).z));
-  if (!collidesX) pos.x = tryX.x; else velocity.x = 0;
+    // Try X axis
+    const tryX = new THREE.Vector3(next.x, pos.y, pos.z);
+    const collidesX = world.isSolidAt(Math.floor(feetAt(tryX).x), Math.floor(feetAt(tryX).y), Math.floor(feetAt(tryX).z)) ||
+                     world.isSolidAt(Math.floor(headAt(tryX).x), Math.floor(headAt(tryX).y), Math.floor(headAt(tryX).z));
+    if (!collidesX) pos.x = tryX.x; else velocity.x = 0;
 
-  // Try Z axis
-  const tryZ = new THREE.Vector3(pos.x, pos.y, next.z);
-  const collidesZ = world.isSolidAt(Math.floor(feetAt(tryZ).x), Math.floor(feetAt(tryZ).y), Math.floor(feetAt(tryZ).z)) ||
-                   world.isSolidAt(Math.floor(headAt(tryZ).x), Math.floor(headAt(tryZ).y), Math.floor(headAt(tryZ).z));
-  if (!collidesZ) pos.z = tryZ.z; else velocity.z = 0;
+    // Try Z axis
+    const tryZ = new THREE.Vector3(pos.x, pos.y, next.z);
+    const collidesZ = world.isSolidAt(Math.floor(feetAt(tryZ).x), Math.floor(feetAt(tryZ).y), Math.floor(feetAt(tryZ).z)) ||
+                     world.isSolidAt(Math.floor(headAt(tryZ).x), Math.floor(headAt(tryZ).y), Math.floor(headAt(tryZ).z));
+    if (!collidesZ) pos.z = tryZ.z; else velocity.z = 0;
 
-  // Try Y axis
-  const tryY = new THREE.Vector3(pos.x, next.y, pos.z);
-  const collidesY = world.isSolidAt(Math.floor(feetAt(tryY).x), Math.floor(feetAt(tryY).y), Math.floor(feetAt(tryY).z)) ||
-                   world.isSolidAt(Math.floor(headAt(tryY).x), Math.floor(headAt(tryY).y), Math.floor(headAt(tryY).z));
-  if (!collidesY) pos.y = tryY.y; else velocity.y = Math.max(0, velocity.y);
+    // Try Y axis
+    const tryY = new THREE.Vector3(pos.x, next.y, pos.z);
+    const collidesY = world.isSolidAt(Math.floor(feetAt(tryY).x), Math.floor(feetAt(tryY).y), Math.floor(feetAt(tryY).z)) ||
+                     world.isSolidAt(Math.floor(headAt(tryY).x), Math.floor(headAt(tryY).y), Math.floor(headAt(tryY).z));
+    if (!collidesY) pos.y = tryY.y; else velocity.y = Math.max(0, velocity.y);
 
-  onGround = !isFlying && collidesY && velocity.y <= 0;
+    onGround = collidesY && velocity.y <= 0;
+  }
 
   // Dampen horizontal velocity
-  const damp = isFlying ? 0.90 : 0.85;
+  const damp = isFlying ? 0.92 : 0.85;
   velocity.x *= damp;
   velocity.z *= damp;
-  if (isFlying) velocity.y *= 0.90;
+  if (isFlying) velocity.y *= 0.92;
 }
 
 // HUD update
