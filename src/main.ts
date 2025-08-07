@@ -47,6 +47,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') {
     const now = performance.now();
     if (now - lastSpaceTapMs < DOUBLE_TAP_WINDOW_MS) {
+      // Toggle flight both on and off
       isFlying = !isFlying;
       // Reset vertical velocity when toggling flight to avoid abrupt jumps/falls
       const pos = controls.getObject().position;
@@ -224,6 +225,7 @@ function animate() {
   camera.updateMatrixWorld();
   world.update(camera.position, camera);
   clippy.update(delta, controls.getObject().position);
+  // Update CRT trees via world's structures tick happens inside world.update in future; for now effects are self-animated
   if (controls.isLocked) updateMovement(delta);
   updateHud(fps);
 

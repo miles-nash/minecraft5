@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CHUNK_SIZE, WORLD_HEIGHT, RENDER_DISTANCE_CHUNKS, BlockId } from './constants';
 import { Perlin2D } from './noise';
 import { Chunk } from './Chunk';
+import { CRTTree } from '../structures/CRTTree';
 
 const tempVec3 = new THREE.Vector3();
 
@@ -10,6 +11,7 @@ export class World {
   private chunks: Map<string, Chunk> = new Map();
   private perlin = new Perlin2D(2025);
   private chunkMeshes: Map<string, THREE.Object3D> = new Map();
+  private structures: Map<string, CRTTree[]> = new Map();
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -50,6 +52,25 @@ export class World {
           chunk.set(x, y, z, id);
         }
       }
+    }
+    // Rare CRT tree spawn per chunk
+    const seed = Math.sin(chunk.originX * 127.1 + chunk.originZ * 311.7) * 43758.5453;
+    const r = Math.abs(seed % 1);
+    if (r < 0.05) {
+      const trees: CRTTree[] = [];
+      const count = 1 + Math.floor(((r * 1000) % 2));
+      for (let i = 0; i < count; i++) {
+        const lx = Math.floor(((seed + i * 13.37) % 1 + 1) % 1 * CHUNK_SIZE);
+        const lz = Math.floor(((seed + i * 7.77) % 1 + 1) % 1 * CHUNK_SIZE);
+        const wx = chunk.originX + lx;
+        const wz = chunk.originZ + lz;
+        const h = this.getHeightAt(wx, wz);
+        const t = new CRTTree();
+        t.position.set(wx + 0.5, h + 0.01, wz + 0.5);
+        this.scene.add(t);
+        trees.push(t);
+      }
+      if (trees.length) this.structures.set(chunk.key, trees);
     }
   }
 
@@ -108,6 +129,11 @@ export class World {
   private disposeChunk(key: string) {
     const mesh = this.chunkMeshes.get(key);
     if (mesh) { this.scene.remove(mesh); this.chunkMeshes.delete(key); }
+    const trees = this.structures.get(key);
+    if (trees) {
+      for (const t of trees) this.scene.remove(t);
+      this.structures.delete(key);
+    }
     this.chunks.delete(key);
   }
 
