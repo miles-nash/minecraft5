@@ -3,6 +3,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 import { World } from './world/World';
 import { BlockId } from './world/constants';
 import { ClippyNPC } from './npc/Clippy';
+import { Zombie } from './npc/Zombie';
 
 const appElement = document.getElementById('app')!;
 const hudElement = document.getElementById('hud')!;
@@ -65,6 +66,9 @@ const world = new World(scene);
 const clippy = new ClippyNPC();
 clippy.position.set(12, 39, 12);
 scene.add(clippy);
+const zombie = new Zombie(world);
+zombie.position.set(20, 39, 20);
+scene.add(zombie);
 
 // Inventory (0-8 slots, 1-9 to select)
 let selected: BlockId = BlockId.Grass;
@@ -225,6 +229,7 @@ function animate() {
   camera.updateMatrixWorld();
   world.update(camera.position, camera);
   clippy.update(delta, controls.getObject().position);
+  zombie.update(delta, controls.getObject().position);
   // Update CRT trees via world's structures tick happens inside world.update in future; for now effects are self-animated
   if (controls.isLocked) updateMovement(delta);
   updateHud(fps);
